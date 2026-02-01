@@ -119,6 +119,25 @@ class Brain:
             logger.error(f"Error processing intent: {e}", exc_info=True)
             return f"I had trouble thinking about that. Error: {e}. Please try again."
 
+    def process_user_voice(self, audio_path):
+        """Processes a voice note from the user."""
+        if not self.chat:
+            return "I am not connected to my brain (Gemini API Key missing)."
+
+        try:
+            # Upload the file to Gemini
+            logger.info(f"Uploading audio file: {audio_path}")
+            audio_file = genai.upload_file(path=audio_path, mime_type='audio/ogg')
+
+            # Send the audio to the chat
+            prompt = "Please listen to this audio and follow the instructions within it. Use the available tools if needed."
+            response = self.chat.send_message([prompt, audio_file])
+
+            return response.text
+        except Exception as e:
+            logger.error(f"Error processing voice: {e}", exc_info=True)
+            return f"I had trouble listening to that. Error: {e}. Please try again."
+
     def analyze_email_importance(self, subject, sender, snippet):
         """Analyzes if an email is important."""
         if not self.model: return False, "Brain missing."
