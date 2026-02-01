@@ -1,6 +1,6 @@
-# Personal AI Assistant Bot
+# Kernel: Your AI Assistant
 
-A smart personal assistant that integrates **Telegram**, **Google Gemini**, **Gmail**, **Google Calendar**, and **Google Tasks**.
+Kernel is a smart personal assistant that integrates **Telegram**, **Google Gemini**, **Gmail**, **Google Calendar**, and **Google Tasks**.
 
 Runs locally on your machine for privacy and control.
 

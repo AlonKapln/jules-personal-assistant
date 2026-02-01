@@ -35,14 +35,12 @@ class Poller:
                         email['subject'], email['sender'], email['snippet']
                     )
                 else:
-                    # Simple filtering: Check if 'Important' label exists?
-                    # The list_unread_emails doesn't return labels.
-                    # Let's simple check if it is unread (which it is) and maybe some keyword?
-                    # For V1 simple mode, let's just alert on ALL unread emails if AI is off,
-                    # or maybe just assume the user uses Gmail's filters.
-                    # Let's say: Simple mode = Notify everything.
-                    is_important = True
-                    reason = "New unread email."
+                    # Simple filtering: Check if 'IMPORTANT' label exists
+                    if 'IMPORTANT' in email.get('labels', []):
+                        is_important = True
+                        reason = "Marked as Important in Gmail."
+                    else:
+                        is_important = False
 
                 if is_important:
                     alerts.append(

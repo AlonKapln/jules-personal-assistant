@@ -19,7 +19,7 @@ if not ALLOWED_USER_IDS:
     logger.warning("No allowed Telegram user IDs configured in secrets.json. Anyone can use this bot!")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hello! I am your personal AI assistant. I can manage your emails, calendar, and tasks. How can I help you today?")
+    await update.message.reply_text("Hello! I am Kernel, your personal AI assistant. I can manage your emails, calendar, and tasks. How can I help you today?")
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(

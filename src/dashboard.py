@@ -8,7 +8,7 @@ sys.path.append(os.getcwd())
 from src.config import config
 
 st.set_page_config(
-    page_title="Personal Bot Dashboard",
+    page_title="Kernel Dashboard",
     page_icon="🤖",
     layout="centered"
 )
@@ -36,9 +36,9 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-st.title("🤖 Personal Assistant Settings")
+st.title("🤖 Kernel Settings")
 
-st.markdown("Configure your AI assistant's behavior and personality.")
+st.markdown("Configure Kernel's behavior and personality.")
 
 # Reload config to ensure we have latest
 config.reload_settings()

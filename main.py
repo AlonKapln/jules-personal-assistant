@@ -3,7 +3,7 @@ import subprocess
 import os
 
 def run_bot():
-    print("Starting Personal Bot...")
+    print("Starting Kernel...")
     # Use python from the current environment, running as a module to fix imports
     subprocess.run([sys.executable, "-m", "src.bot"])
 
