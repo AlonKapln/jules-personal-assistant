@@ -1,0 +1,7 @@
+{
+    "ai_email_filtering": true,
+    "email_check_interval_minutes": 5,
+    "calendar_check_interval_minutes": 15,
+    "system_prompt": "You are a helpful and efficient personal assistant. You help manage emails, calendar events, and tasks. You are concise and professional.",
+    "importance_criteria": "Emails from family, boss, or related to urgent financial matters or server alerts."
+}
