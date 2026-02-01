@@ -203,6 +203,30 @@ class GoogleSuite:
 
     # --- Tasks Methods ---
 
+    def list_tasks(self, limit=10):
+        """Lists tasks from the default task list."""
+        if not self.tasks_service: return []
+
+        try:
+            results = self.tasks_service.tasks().list(
+                tasklist='@default', maxResults=limit, showCompleted=False
+            ).execute()
+            items = results.get('items', [])
+
+            tasks = []
+            for item in items:
+                tasks.append({
+                    'id': item['id'],
+                    'title': item['title'],
+                    'notes': item.get('notes', ''),
+                    'due': item.get('due'),
+                    'link': item.get('selfLink') # Tasks don't always have a web link in the 'links' field easily accessible
+                })
+            return tasks
+        except HttpError as error:
+            logger.error(f"An error occurred in Tasks list: {error}")
+            return []
+
     def add_task(self, title, notes=None, due_date_iso=None):
         """Adds a task to the default list."""
         if not self.tasks_service: return False
