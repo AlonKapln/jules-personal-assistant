@@ -16,22 +16,8 @@ st.set_page_config(
 # Custom CSS for Google-like feel
 st.markdown("""
     <style>
-    .main {
-        background-color: #f8f9fa;
+    .stApp {
         font-family: 'Roboto', sans-serif;
-    }
-    h1 {
-        color: #202124;
-    }
-    .stButton>button {
-        background-color: #1a73e8;
-        color: white;
-        border-radius: 4px;
-        border: none;
-    }
-    .stButton>button:hover {
-        background-color: #1557b0;
-        color: white;
     }
     </style>
     """, unsafe_allow_html=True)
