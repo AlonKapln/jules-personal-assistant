@@ -2,6 +2,8 @@ import logging
 import asyncio
 import sys
 import datetime
+import tempfile
+import os
 from telegram import Update, Bot
 from telegram.constants import ChatAction
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters, Application
@@ -84,6 +86,44 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         logger.error(f"Error handling message: {e}", exc_info=True)
         await update.message.reply_text("I encountered an error while processing your message.")
 
+async def handle_voice(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    temp_path = None
+    try:
+        user_id = update.effective_user.id
+        logger.debug(f"Received voice message from user_id: {user_id}")
+
+        # Security check
+        if ALLOWED_USER_IDS and user_id not in ALLOWED_USER_IDS:
+            logger.warning(f"Unauthorized access attempt by {user_id}")
+            await update.message.reply_text("Sorry, you are not authorized to use this bot.")
+            return
+
+        # Indicate processing
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+
+        voice = update.message.voice
+        logger.info(f"Processing voice message: {voice.file_id}")
+
+        # Download voice note
+        with tempfile.NamedTemporaryFile(suffix=".ogg", delete=False) as temp_file:
+            temp_path = temp_file.name
+
+        new_file = await context.bot.get_file(voice.file_id)
+        await new_file.download_to_drive(temp_path)
+
+        # Process with Brain
+        response = await asyncio.get_running_loop().run_in_executor(None, brain.process_user_voice, temp_path)
+
+        logger.info("Response generated.")
+        await update.message.reply_text(response)
+    except Exception as e:
+        logger.error(f"Error handling voice message: {e}", exc_info=True)
+        await update.message.reply_text("I encountered an error while processing your voice message.")
+    finally:
+        # Cleanup
+        if temp_path and os.path.exists(temp_path):
+            os.remove(temp_path)
+
 async def polling_job(context: ContextTypes.DEFAULT_TYPE):
     """Background job to check for updates."""
     # Reload settings to pick up any changes from Dashboard
@@ -160,6 +200,7 @@ def run_bot():
         application.add_handler(CommandHandler('help', help_command))
         application.add_handler(CommandHandler('ping', ping))
         application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+        application.add_handler(MessageHandler(filters.VOICE, handle_voice))
 
         # Add background job
         job_queue = application.job_queue
