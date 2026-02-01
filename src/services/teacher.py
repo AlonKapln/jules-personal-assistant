@@ -42,4 +42,34 @@ class Teacher:
             logger.error(f"Error generating lesson: {e}", exc_info=True)
             return None
 
+    def teach_word_of_the_day(self):
+        """Generates a Word of the Day lesson."""
+        try:
+            level = config.get_setting("learning_level", "Intermediate")
+
+            logger.info(f"Generating Word of the Day for level: {level}")
+
+            context = f"""
+            You are an English teacher. The user wants to learn English at an {level} level.
+
+            Please provide a "Word of the Day".
+            Format:
+            **Word**: [The Word]
+            **Pronunciation**: [IPA or phonetic]
+            **Definition**: [Definition]
+            **Example**: [Example sentence]
+            **Fun Fact**: [Optional fun fact about the word]
+
+            Keep it concise and formatted for a Telegram message.
+            """
+
+            if brain.model:
+                response = brain.model.generate_content(context)
+                return f"📖 **Word of the Day**\n\n{response.text}"
+            else:
+                return None
+        except Exception as e:
+            logger.error(f"Error generating Word of the Day: {e}", exc_info=True)
+            return None
+
 teacher = Teacher()

@@ -34,15 +34,16 @@ class Brain:
             """
             return google_suite.create_event(summary, start_time_iso, end_time_iso, description)
 
-        def add_todo_task(title: str, notes: str = None, due_date_iso: str = None):
+        def add_todo_task(title: str, notes: str = None, due_date_iso: str = None, urgency: str = None):
             """Adds a new task to the user's Google Tasks.
 
             Args:
                 title: The content of the task.
                 notes: Additional details for the task.
-                due_date_iso: The due date in ISO 8601 format (RFC 3339).
+                due_date_iso: The due date in ISO 8601 format (RFC 3339). Use this if the user wants to set a time or reminder.
+                urgency: Set to 'urgent' or 'high' if the user mentions urgency or priority.
             """
-            return google_suite.add_task(title, notes, due_date_iso)
+            return google_suite.add_task(title, notes, due_date_iso, urgency)
 
         def list_todo_tasks(limit: int = 10):
             """Lists the user's tasks from Google Tasks.
@@ -96,6 +97,7 @@ class Brain:
         # Append tool usage instructions
         system_instruction += "\n\nYou have access to tools to manage the user's digital life. " \
                               "When asked to schedule or remind, use the appropriate tool. " \
+                              "For tasks, you can set urgency and due times (reminders). " \
                               "Always check the current time using get_current_time if you need to schedule something relatively (like 'tomorrow')."
 
         model_name = config.get_setting("gemini_model") or 'gemini-3-flash-preview'

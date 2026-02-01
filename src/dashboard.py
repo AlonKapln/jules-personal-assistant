@@ -1,6 +1,7 @@
 import streamlit as st
 import sys
 import os
+from datetime import datetime
 
 # Ensure src is in path if running directly
 sys.path.append(os.getcwd())
@@ -65,6 +66,35 @@ with st.form("settings_form"):
         help="Criteria used by Gemini to decide if an email is important."
     )
 
+    st.subheader("Daily Learning")
+
+    col3, col4 = st.columns(2)
+    with col3:
+        wotd_enabled = st.checkbox(
+            "Enable Word of the Day",
+            value=config.get_setting("wotd_enabled", False)
+        )
+
+    with col4:
+        # Parse existing time setting or default
+        current_time_str = config.get_setting("wotd_time", "09:00")
+        try:
+            t = datetime.strptime(current_time_str, "%H:%M").time()
+        except:
+            t = datetime.strptime("09:00", "%H:%M").time()
+
+        wotd_time = st.time_input(
+            "Time for Word of the Day",
+            value=t,
+            help="Time to send the daily word (requires bot restart to apply change)."
+        )
+
+    learning_level = st.selectbox(
+        "Learning Level",
+        ["Beginner", "Intermediate", "Advanced", "Business", "Academic"],
+        index=["Beginner", "Intermediate", "Advanced", "Business", "Academic"].index(config.get_setting("learning_level", "Intermediate"))
+    )
+
     submitted = st.form_submit_button("Save Changes")
 
     if submitted:
@@ -73,7 +103,11 @@ with st.form("settings_form"):
         config.update_setting("system_prompt", system_prompt)
         config.update_setting("importance_criteria", importance_criteria)
 
-        st.success("Settings saved! The bot will update on the next poll cycle.")
+        config.update_setting("wotd_enabled", wotd_enabled)
+        config.update_setting("wotd_time", wotd_time.strftime("%H:%M"))
+        config.update_setting("learning_level", learning_level)
+
+        st.success("Settings saved! The bot will update on the next poll cycle (restart required for schedule changes).")
 
 st.markdown("---")
 st.caption("Running locally on your machine.")
