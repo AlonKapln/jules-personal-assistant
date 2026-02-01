@@ -227,11 +227,15 @@ class GoogleSuite:
             logger.error(f"An error occurred in Tasks list: {error}")
             return []
 
-    def add_task(self, title, notes=None, due_date_iso=None):
+    def add_task(self, title, notes=None, due_date_iso=None, urgency=None):
         """Adds a task to the default list."""
         if not self.tasks_service: return False
 
         try:
+            # Handle urgency
+            if urgency and str(urgency).lower() in ['true', 'high', 'urgent', 'very']:
+                title = f"[URGENT] {title}"
+
             task = {'title': title, 'notes': notes}
             if due_date_iso:
                 # Tasks API requires RFC 3339 timestamp
@@ -241,7 +245,8 @@ class GoogleSuite:
                 tasklist='@default', body=task
             ).execute()
             logger.info(f"Task created: {result.get('title')}")
-            return result.get('links', [{}])[0].get('link', 'Task Created')
+            # Safely return a link to the task, or a default message
+            return result.get('webViewLink') or result.get('selfLink') or 'Task Created'
         except HttpError as error:
             logger.error(f"An error occurred creating task: {error}")
             return None

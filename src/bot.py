@@ -164,6 +164,16 @@ async def run_teacher_job(context: ContextTypes.DEFAULT_TYPE):
     if lesson:
         await context.bot.send_message(chat_id=chat_id, text=lesson, parse_mode='Markdown')
 
+async def run_word_of_day_job(context: ContextTypes.DEFAULT_TYPE):
+    """Sends the daily Word of the Day."""
+    if not ALLOWED_USER_IDS: return
+    chat_id = ALLOWED_USER_IDS[0]
+
+    logger.info("Sending Word of the Day...")
+    lesson = await asyncio.get_running_loop().run_in_executor(None, teacher.teach_word_of_the_day)
+    if lesson:
+        await context.bot.send_message(chat_id=chat_id, text=lesson, parse_mode='Markdown')
+
 
 def run_bot():
     global ALLOWED_USER_IDS
@@ -223,6 +233,17 @@ def run_bot():
             freq_hours = config.get_setting("learning_frequency_hours", 4)
             job_queue.run_repeating(run_teacher_job, interval=freq_hours * 3600, first=60)
             logger.info(f"English Teacher scheduled every {freq_hours} hours.")
+
+            # Schedule Word of the Day
+            wotd_enabled = config.get_setting("wotd_enabled", False)
+            if wotd_enabled:
+                wotd_time_str = config.get_setting("wotd_time", "09:00")
+                try:
+                    h, m = map(int, wotd_time_str.split(':'))
+                    job_queue.run_daily(run_word_of_day_job, time=datetime.time(hour=h, minute=m))
+                    logger.info(f"Word of the Day scheduled for {wotd_time_str}.")
+                except ValueError:
+                    logger.error(f"Invalid time format for Word of the Day: {wotd_time_str}")
 
         logger.info("Bot is running... (Press Ctrl+C to stop)")
         application.run_polling()
