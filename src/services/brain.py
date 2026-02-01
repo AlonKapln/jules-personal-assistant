@@ -44,6 +44,14 @@ class Brain:
             """
             return google_suite.add_task(title, notes, due_date_iso)
 
+        def list_todo_tasks(limit: int = 10):
+            """Lists the user's tasks from Google Tasks.
+
+            Args:
+                limit: The max number of tasks to retrieve (default 10).
+            """
+            return google_suite.list_tasks(limit)
+
         def send_email(to_email: str, subject: str, body: str):
             """Sends an email to a specific address.
 
@@ -77,6 +85,7 @@ class Brain:
         tools = [
             create_calendar_event,
             add_todo_task,
+            list_todo_tasks,
             send_email,
             list_unread_emails,
             list_upcoming_events,
@@ -106,8 +115,8 @@ class Brain:
             response = self.chat.send_message(user_message)
             return response.text
         except Exception as e:
-            logger.error(f"Error processing intent: {e}")
-            return "I had trouble thinking about that. Please try again."
+            logger.error(f"Error processing intent: {e}", exc_info=True)
+            return f"I had trouble thinking about that. Error: {e}. Please try again."
 
     def analyze_email_importance(self, subject, sender, snippet):
         """Analyzes if an email is important."""

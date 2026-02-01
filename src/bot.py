@@ -1,6 +1,7 @@
 import logging
 import asyncio
 import sys
+import datetime
 from telegram import Update, Bot
 from telegram.constants import ChatAction
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters, Application
@@ -32,6 +33,8 @@ try:
     from src.config import config
     from src.services.brain import brain
     from src.services.poller import poller
+    from src.services.reporter import reporter
+    from src.services.teacher import teacher
 except Exception as e:
     logger.critical(f"Failed to import dependencies: {e}", exc_info=True)
     sys.exit(1)
@@ -100,6 +103,27 @@ async def polling_job(context: ContextTypes.DEFAULT_TYPE):
     for alert in calendar_alerts:
         await context.bot.send_message(chat_id=chat_id, text=alert, parse_mode='Markdown')
 
+async def send_report(context: ContextTypes.DEFAULT_TYPE):
+    """Sends a scheduled report."""
+    if not ALLOWED_USER_IDS: return
+    chat_id = ALLOWED_USER_IDS[0]
+
+    job = context.job
+    part_of_day = job.data if job.data else "Daily"
+
+    logger.info(f"Sending {part_of_day} report...")
+    report_text = await asyncio.get_running_loop().run_in_executor(None, reporter.generate_report, part_of_day)
+    await context.bot.send_message(chat_id=chat_id, text=report_text, parse_mode='Markdown')
+
+async def run_teacher_job(context: ContextTypes.DEFAULT_TYPE):
+    """Sends a scheduled English lesson."""
+    if not ALLOWED_USER_IDS: return
+    chat_id = ALLOWED_USER_IDS[0]
+
+    lesson = await asyncio.get_running_loop().run_in_executor(None, teacher.teach_english)
+    if lesson:
+        await context.bot.send_message(chat_id=chat_id, text=lesson, parse_mode='Markdown')
+
 
 def run_bot():
     global ALLOWED_USER_IDS
@@ -144,6 +168,20 @@ def run_bot():
             interval = config.get_setting("email_check_interval_minutes", 5) * 60
             job_queue.run_repeating(polling_job, interval=interval, first=10)
             logger.info(f"Polling job scheduled every {interval} seconds.")
+
+            # Schedule reports
+            # Morning (8:00 AM)
+            job_queue.run_daily(send_report, time=datetime.time(hour=8, minute=0), data="Morning")
+            # Noon (12:00 PM)
+            job_queue.run_daily(send_report, time=datetime.time(hour=12, minute=0), data="Noon")
+            # Evening (6:00 PM)
+            job_queue.run_daily(send_report, time=datetime.time(hour=18, minute=0), data="Evening")
+            logger.info("Daily reports scheduled for 08:00, 12:00, and 18:00.")
+
+            # Schedule English Teacher
+            freq_hours = config.get_setting("learning_frequency_hours", 4)
+            job_queue.run_repeating(run_teacher_job, interval=freq_hours * 3600, first=60)
+            logger.info(f"English Teacher scheduled every {freq_hours} hours.")
 
         logger.info("Bot is running... (Press Ctrl+C to stop)")
         application.run_polling()
