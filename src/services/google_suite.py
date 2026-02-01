@@ -99,6 +99,7 @@ class GoogleSuite:
                     'subject': subject,
                     'sender': sender,
                     'snippet': snippet,
+                    'labels': txt.get('labelIds', []),
                     'link': f"https://mail.google.com/mail/u/0/#inbox/{msg['id']}"
                 })
             return email_data
