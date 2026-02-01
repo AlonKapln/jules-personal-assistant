@@ -83,7 +83,7 @@ class Brain:
             get_current_time
         ]
 
-        system_instruction = config.get_setting("system_prompt")
+        system_instruction = config.get_setting("system_prompt") or ""
         # Append tool usage instructions
         system_instruction += "\n\nYou have access to tools to manage the user's digital life. " \
                               "When asked to schedule or remind, use the appropriate tool. " \

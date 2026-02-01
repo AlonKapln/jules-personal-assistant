@@ -14,9 +14,25 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-ALLOWED_USER_IDS = config.get_secret("allowed_telegram_user_ids", [])
+raw_allowed_ids = config.get_secret("allowed_telegram_user_ids", [])
+ALLOWED_USER_IDS = []
+
+if isinstance(raw_allowed_ids, int):
+    ALLOWED_USER_IDS = [raw_allowed_ids]
+elif isinstance(raw_allowed_ids, list):
+    for uid in raw_allowed_ids:
+        try:
+            ALLOWED_USER_IDS.append(int(uid))
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid user ID in configuration: {uid}")
+else:
+    logger.warning(f"Invalid format for allowed_telegram_user_ids: {type(raw_allowed_ids)}. expected list or int.")
+
 if not ALLOWED_USER_IDS:
     logger.warning("No allowed Telegram user IDs configured in secrets.json. Anyone can use this bot!")
+
+async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Pong! Kernel is running.")
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Hello! I am Kernel, your personal AI assistant. I can manage your emails, calendar, and tasks. How can I help you today?")
@@ -32,23 +48,27 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     )
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id
+    try:
+        user_id = update.effective_user.id
 
-    # Security check
-    if ALLOWED_USER_IDS and user_id not in ALLOWED_USER_IDS:
-        await update.message.reply_text("Sorry, you are not authorized to use this bot.")
-        return
+        # Security check
+        if ALLOWED_USER_IDS and user_id not in ALLOWED_USER_IDS:
+            await update.message.reply_text("Sorry, you are not authorized to use this bot.")
+            return
 
-    # Indicate processing
-    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+        # Indicate processing
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
 
-    user_text = update.message.text
+        user_text = update.message.text
 
-    # Process with Brain (which runs in a thread because it's synchronous API calls mostly,
-    # but gemini might be blocking. Ideally run_in_executor)
-    response = await asyncio.get_running_loop().run_in_executor(None, brain.process_user_intent, user_text)
+        # Process with Brain (which runs in a thread because it's synchronous API calls mostly,
+        # but gemini might be blocking. Ideally run_in_executor)
+        response = await asyncio.get_running_loop().run_in_executor(None, brain.process_user_intent, user_text)
 
-    await update.message.reply_text(response)
+        await update.message.reply_text(response)
+    except Exception as e:
+        logger.error(f"Error handling message: {e}", exc_info=True)
+        await update.message.reply_text("I encountered an error while processing your message.")
 
 async def polling_job(context: ContextTypes.DEFAULT_TYPE):
     """Background job to check for updates."""
@@ -85,6 +105,7 @@ def run_bot():
 
     application.add_handler(CommandHandler('start', start))
     application.add_handler(CommandHandler('help', help_command))
+    application.add_handler(CommandHandler('ping', ping))
     application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
     # Add background job
