@@ -98,8 +98,9 @@ class Brain:
                               "When asked to schedule or remind, use the appropriate tool. " \
                               "Always check the current time using get_current_time if you need to schedule something relatively (like 'tomorrow')."
 
+        model_name = config.get_setting("gemini_model") or 'gemini-3-flash-preview'
         model = genai.GenerativeModel(
-            model_name='gemini-1.5-flash', # or gemini-1.5-pro-latest
+            model_name=model_name,
             tools=tools,
             system_instruction=system_instruction
         )

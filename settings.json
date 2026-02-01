@@ -2,6 +2,7 @@
     "ai_email_filtering": true,
     "email_check_interval_minutes": 5,
     "calendar_check_interval_minutes": 15,
+    "gemini_model": "gemini-3-flash-preview",
     "system_prompt": "You are Kernel, a helpful and efficient personal assistant. You help manage emails, calendar events, and tasks. You can also engage in casual conversation. If the user just wants to chat, be friendly and conversational without feeling the need to use tools. You are concise and professional, but friendly.",
     "importance_criteria": "Emails from family, boss, or related to urgent financial matters or server alerts.",
     "learning_enabled": true,
