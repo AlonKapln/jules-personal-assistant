@@ -63,4 +63,10 @@ Use the Dashboard to:
 
 ## Troubleshooting
 - **Authentication Error:** Delete `token.json` and restart the bot to re-login.
-- **Bot not replying:** Check `secrets.json` and ensure your User ID is allowed (or list is empty for testing).
+- **Bot not replying:**
+  - Check `kernel.log` for error messages.
+  - Run the diagnostic tool:
+    ```bash
+    python diagnose.py
+    ```
+  - Check `secrets.json` and ensure your User ID is allowed.
