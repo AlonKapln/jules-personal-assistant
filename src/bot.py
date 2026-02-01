@@ -1,16 +1,14 @@
 import logging
 import asyncio
+import sys
 from telegram import Update, Bot
 from telegram.constants import ChatAction
 from telegram.ext import ApplicationBuilder, ContextTypes, CommandHandler, MessageHandler, filters, Application
 
-from src.config import config
-from src.services.brain import brain
-from src.services.poller import poller
-
+# 1. Setup Logging immediately to capture startup errors
 logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO,
+    level=logging.DEBUG, # Changed to DEBUG to trace responsiveness issues
     handlers=[
         logging.FileHandler("kernel.log"),
         logging.StreamHandler()
@@ -18,22 +16,28 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-raw_allowed_ids = config.get_secret("allowed_telegram_user_ids", [])
+# 2. Add Global Exception Hook
+def handle_exception(exc_type, exc_value, exc_traceback):
+    if issubclass(exc_type, KeyboardInterrupt):
+        sys.__excepthook__(exc_type, exc_value, exc_traceback)
+        return
+    logger.critical("Uncaught exception", exc_info=(exc_type, exc_value, exc_traceback))
+
+sys.excepthook = handle_exception
+
+logger.info("Initializing Kernel Bot...")
+
+# 3. Safe Imports
+try:
+    from src.config import config
+    from src.services.brain import brain
+    from src.services.poller import poller
+except Exception as e:
+    logger.critical(f"Failed to import dependencies: {e}", exc_info=True)
+    sys.exit(1)
+
+# Global variable for access control
 ALLOWED_USER_IDS = []
-
-if isinstance(raw_allowed_ids, int):
-    ALLOWED_USER_IDS = [raw_allowed_ids]
-elif isinstance(raw_allowed_ids, list):
-    for uid in raw_allowed_ids:
-        try:
-            ALLOWED_USER_IDS.append(int(uid))
-        except (ValueError, TypeError):
-            logger.warning(f"Invalid user ID in configuration: {uid}")
-else:
-    logger.warning(f"Invalid format for allowed_telegram_user_ids: {type(raw_allowed_ids)}. expected list or int.")
-
-if not ALLOWED_USER_IDS:
-    logger.warning("No allowed Telegram user IDs configured in secrets.json. Anyone can use this bot!")
 
 async def ping(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Pong! Kernel is running.")
@@ -54,9 +58,11 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
         user_id = update.effective_user.id
+        logger.debug(f"Received message from user_id: {user_id}")
 
         # Security check
         if ALLOWED_USER_IDS and user_id not in ALLOWED_USER_IDS:
+            logger.warning(f"Unauthorized access attempt by {user_id}")
             await update.message.reply_text("Sorry, you are not authorized to use this bot.")
             return
 
@@ -64,11 +70,12 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
 
         user_text = update.message.text
+        logger.info(f"Processing message: {user_text}")
 
-        # Process with Brain (which runs in a thread because it's synchronous API calls mostly,
-        # but gemini might be blocking. Ideally run_in_executor)
+        # Process with Brain
         response = await asyncio.get_running_loop().run_in_executor(None, brain.process_user_intent, user_text)
 
+        logger.info("Response generated.")
         await update.message.reply_text(response)
     except Exception as e:
         logger.error(f"Error handling message: {e}", exc_info=True)
@@ -78,11 +85,6 @@ async def polling_job(context: ContextTypes.DEFAULT_TYPE):
     """Background job to check for updates."""
     # Reload settings to pick up any changes from Dashboard
     config.reload_settings()
-
-    # We need a chat_id to send alerts to.
-    # Since this is a personal bot, we can assume we send to the first allowed user
-    # OR we need the user to have started the bot.
-    # For simplicity, we will assume the first allowed user in the config is the owner.
 
     if not ALLOWED_USER_IDS:
         return
@@ -100,28 +102,53 @@ async def polling_job(context: ContextTypes.DEFAULT_TYPE):
 
 
 def run_bot():
+    global ALLOWED_USER_IDS
+
+    # Process configuration securely inside the run function
+    raw_allowed_ids = config.get_secret("allowed_telegram_user_ids", [])
+    ALLOWED_USER_IDS = []
+
+    if isinstance(raw_allowed_ids, int):
+        ALLOWED_USER_IDS = [raw_allowed_ids]
+    elif isinstance(raw_allowed_ids, list):
+        for uid in raw_allowed_ids:
+            try:
+                ALLOWED_USER_IDS.append(int(uid))
+            except (ValueError, TypeError):
+                logger.warning(f"Invalid user ID in configuration: {uid}")
+    else:
+        logger.warning(f"Invalid format for allowed_telegram_user_ids: {type(raw_allowed_ids)}. expected list or int.")
+
+    if not ALLOWED_USER_IDS:
+        logger.warning("No allowed Telegram user IDs configured in secrets.json. Anyone can use this bot!")
+    else:
+        logger.info(f"Bot restricted to {len(ALLOWED_USER_IDS)} users.")
+
     token = config.get_secret("telegram_bot_token")
     if not token or token == "YOUR_TELEGRAM_BOT_TOKEN_HERE":
         logger.error("Telegram Bot Token is missing. Please set it in secrets.json")
         return
 
-    application = ApplicationBuilder().token(token).build()
+    try:
+        application = ApplicationBuilder().token(token).build()
 
-    application.add_handler(CommandHandler('start', start))
-    application.add_handler(CommandHandler('help', help_command))
-    application.add_handler(CommandHandler('ping', ping))
-    application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
+        application.add_handler(CommandHandler('start', start))
+        application.add_handler(CommandHandler('help', help_command))
+        application.add_handler(CommandHandler('ping', ping))
+        application.add_handler(MessageHandler(filters.TEXT & (~filters.COMMAND), handle_message))
 
-    # Add background job
-    job_queue = application.job_queue
-    if job_queue:
-        # Check every minute (or config interval)
-        interval = config.get_setting("email_check_interval_minutes", 5) * 60
-        job_queue.run_repeating(polling_job, interval=interval, first=10)
-        logger.info(f"Polling job scheduled every {interval} seconds.")
+        # Add background job
+        job_queue = application.job_queue
+        if job_queue:
+            # Check every minute (or config interval)
+            interval = config.get_setting("email_check_interval_minutes", 5) * 60
+            job_queue.run_repeating(polling_job, interval=interval, first=10)
+            logger.info(f"Polling job scheduled every {interval} seconds.")
 
-    logger.info("Bot is running...")
-    application.run_polling()
+        logger.info("Bot is running... (Press Ctrl+C to stop)")
+        application.run_polling()
+    except Exception as e:
+        logger.critical(f"Bot failed to start: {e}", exc_info=True)
 
 if __name__ == '__main__':
     run_bot()
